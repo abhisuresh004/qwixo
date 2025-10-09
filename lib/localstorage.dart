@@ -21,7 +21,7 @@ class Localstorage {
   static Future<Map<String, dynamic>> getuser() async {
     final prefs = await SharedPreferences.getInstance();
     return {
-      "isLoggedin": prefs.getBool(_isLoggedInKey) ?? false,
+      "isLoggedIn": prefs.getBool(_isLoggedInKey) ?? false,
       "name": prefs.getString(_userNameKey) ?? '',
       "email": prefs.getString(_userEmailKey) ?? '',
       "photourl": prefs.getString(_userPhotoKey) ?? '',

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:qwixo/auth.dart';
-import 'package:qwixo/screens/localstorage.dart';
+import 'package:qwixo/localstorage.dart';
+import 'package:qwixo/screens/chat.dart';
 import 'package:qwixo/screens/login.dart';
 
 class Home extends StatefulWidget {
@@ -12,6 +13,10 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   bool _showLogout = false;
+  bool _showusername = false;
+  String _userName = '';
+  String _userEmail = '';
+  String _userPhoto = '';
 
   // logout
   void showlogoutdialoug(BuildContext context) {
@@ -39,6 +44,22 @@ class _HomeState extends State<Home> {
         ],
       ),
     );
+  }
+
+  //load usedata
+
+  Future<void> loaduserdata() async {
+    final userData = await Localstorage.getuser();
+    setState(() {
+      _userName = userData['name'] ?? '';
+      _userEmail = userData['email'] ?? '';
+      _userPhoto = userData['photourl'] ?? '';
+    });
+  }
+
+  void initState() {
+    super.initState();
+    loaduserdata();
   }
 
   @override
@@ -77,10 +98,16 @@ class _HomeState extends State<Home> {
       body: NotificationListener<ScrollNotification>(
         onNotification: (scrollInfo) {
           // When scrolled enough, show logout button
-          if (scrollInfo.metrics.pixels > 100 && !_showLogout) {
+          if (scrollInfo.metrics.pixels > 100 &&
+              !_showLogout &&
+              !_showusername) {
             setState(() => _showLogout = true);
-          } else if (scrollInfo.metrics.pixels <= 100 && _showLogout) {
+            setState(() => _showusername = true);
+          } else if (scrollInfo.metrics.pixels <= 100 &&
+              _showLogout &&
+              _showusername) {
             setState(() => _showLogout = false);
+            setState(() => _showusername = false);
           }
           return true;
         },
@@ -102,19 +129,52 @@ class _HomeState extends State<Home> {
                       (constraints.maxHeight - kToolbarHeight) /
                       (200 - kToolbarHeight);
                   return FlexibleSpaceBar(
-                    title: Align(
-                      // duration: const Duration(milliseconds: 100),
-                      alignment: collapseRatio > 0.5
-                          ? Alignment.bottomCenter
-                          : Alignment.bottomLeft,
-                      child: Text(
-                        'Chats',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    title: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _userPhoto.isNotEmpty
+                              ? CircleAvatar(
+                                  backgroundImage: NetworkImage(_userPhoto),
+                                  radius: 18,
+                                )
+                              : const CircleAvatar(
+                                  child: Icon(
+                                    Icons.person,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                SizedBox(width: 10,),
+                          AnimatedOpacity(
+                            opacity: _showusername ? 1.0 : 0.0,
+                            duration: Duration(milliseconds: 300),
+                            child: Text(_userName,style: TextStyle(color: Colors.white),),
+                          ),
+                        ],
                       ),
-                    ),
+                      // Row(
+                      //   children: [
+                      //     _userPhoto.isNotEmpty
+                      //         ? CircleAvatar(
+                      //             backgroundImage: NetworkImage(_userPhoto),
+                      //             radius: 18,
+                      //           )
+                      //         : const CircleAvatar(
+                      //             child: Icon(
+                      //               Icons.person,
+                      //               color: Colors.white,
+                      //             ),
+                      //           ),
+                      //     // ✅ User profile photo
+                      //     Text(
+                      //       'Chats',
+                      //       style: TextStyle(
+                      //         color: Colors.white,
+                      //         fontWeight: FontWeight.bold,
+                      //       ),
+                      //     ),
+                      //   ],
+                      // ),
+                    
                     centerTitle: true,
                   );
                 },
@@ -148,19 +208,27 @@ class _HomeState extends State<Home> {
             ),
             SliverList(
               delegate: SliverChildBuilderDelegate((context, index) {
-                return Container(
-                  // decoration: BoxDecoration(
-                  //   color: Colors.white,
-                  //   borderRadius: BorderRadius.only(
-                  //     topLeft: Radius.circular(30),
-                  //     topRight: Radius.circular(30),
-                  //   ),
-                  // ),
-                  color: Colors.white,
-                  child: ListTile(
-                    leading: CircleAvatar(),
-                    title: Text('name'),
-                    subtitle: Text('mesage'),
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (context) => ChatScreen()),
+                    );
+                  },
+                  child: Container(
+                    // decoration: BoxDecoration(
+                    //   color: Colors.white,
+                    //   borderRadius: BorderRadius.only(
+                    //     topLeft: Radius.circular(30),
+                    //     topRight: Radius.circular(30),
+                    //   ),
+                    // ),
+                    color: Colors.white,
+                    child: ListTile(
+                      leading: CircleAvatar(),
+                      title: Text('name'),
+                      subtitle: Text('mesage'),
+                    ),
                   ),
                 );
               }),

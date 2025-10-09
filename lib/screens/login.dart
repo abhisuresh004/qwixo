@@ -1,8 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:qwixo/auth.dart';
+import 'package:qwixo/firestore_services.dart';
 import 'package:qwixo/home.dart';
-import 'package:qwixo/screens/localstorage.dart';
+import 'package:qwixo/localstorage.dart';
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -13,16 +14,22 @@ class Login extends StatefulWidget {
 
 class _LoginState extends State<Login> {
   final Authservices _googleauth = Authservices();
+  final FirestoreServices _firestore = FirestoreServices();
 
   Future<void> _handleGoogleSignIn() async {
     User? user = await _googleauth.signInwithGoogle();
     if (user != null) {
+      await _firestore.saveusertofirestore(user);
+
       await Localstorage.saveuserdata(
         name: user.displayName ?? '',
         email: user.email ?? '',
         photoUrl: user.photoURL ?? '',
       );
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => Home()));
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => Home()),
+      );
     }
   }
 

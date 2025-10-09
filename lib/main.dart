@@ -1,7 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:qwixo/home.dart';
-import 'package:qwixo/screens/localstorage.dart';
+import 'package:qwixo/localstorage.dart';
 import 'package:qwixo/screens/login.dart';
 
 void main() async {
