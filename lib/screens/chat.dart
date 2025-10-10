@@ -1,15 +1,18 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:qwixo/chat_services.dart';
 
 class ChatScreen extends StatefulWidget {
-  // final String receiverName;
-  // final String receiverEmail;
-  // final String receiverPhoto;
+  final String receiverName;
+  final String receiverid;
+  final String receiverPhoto;
 
   const ChatScreen({
     super.key,
-    // required this.receiverName,
-    // required this.receiverEmail,
-    // required this.receiverPhoto,
+    required this.receiverName,
+    required this.receiverid,
+    required this.receiverPhoto,
   });
 
   @override
@@ -20,21 +23,25 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
+  final _chatservice =chatservice();
+   final currentUser = FirebaseAuth.instance.currentUser!;
+
+
   // temporary list to simulate messages
   final List<Map<String, dynamic>> _messages = [
     {"text": "Hey there!", "isMe": false},
     {"text": "Hi! How are you?", "isMe": true},
   ];
 
-  void _sendMessage() {
-    if (_messageController.text.trim().isEmpty) return;
+  void _sendMessage()async {
+     final text = _messageController.text.trim();
+    if (text.isEmpty) return;
 
-    setState(() {
-      _messages.add({
-        "text": _messageController.text.trim(),
-        "isMe": true,
-      });
-    });
+    await _chatservice.sendmessage(
+      senderid: currentUser.uid,
+      receiverid: widget.receiverid,
+      message: text,
+    );
 
     _messageController.clear();
 
@@ -54,7 +61,7 @@ class _ChatScreenState extends State<ChatScreen> {
         title: Row(
           children: [
             CircleAvatar(
-              // backgroundImage: NetworkImage(widget.receiverPhoto),
+              backgroundImage: NetworkImage(widget.receiverPhoto),
               radius: 18,
             ),
             const SizedBox(width: 10),
@@ -66,41 +73,60 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           // Chat messages list
           Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(12),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final msg = _messages[index];
-                final isMe = msg["isMe"];
-                return Align(
-                  alignment:
-                      isMe ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: isMe
-                          ? Colors.deepPurple.shade400
-                          : Colors.grey.shade300,
-                      borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(12),
-                        topRight: const Radius.circular(12),
-                        bottomLeft:
-                            isMe ? const Radius.circular(12) : Radius.zero,
-                        bottomRight:
-                            isMe ? Radius.zero : const Radius.circular(12),
+            child: StreamBuilder<QuerySnapshot>(
+              stream: _chatservice.getmessages(
+                currentUser.uid,
+                widget.receiverid,
+              ),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final _messages = snapshot.data!.docs.reversed.toList();
+
+                return ListView.builder(
+                  controller: _scrollController,
+                  padding: EdgeInsets.all(12),
+                  itemCount: _messages.length,
+                  itemBuilder: (context, index) {
+                    final msg = _messages[index];
+                    final isMe = msg['senderid'] == currentUser.uid;
+
+                    return Align(
+                      alignment: isMe
+                          ? Alignment.centerRight
+                          : Alignment.centerLeft,
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isMe
+                              ? Colors.deepPurple.shade400
+                              : Colors.grey.shade300,
+                          borderRadius: BorderRadius.only(
+                            topLeft: const Radius.circular(12),
+                            topRight: const Radius.circular(12),
+                            bottomLeft: isMe
+                                ? const Radius.circular(12)
+                                : Radius.zero,
+                            bottomRight: isMe
+                                ? Radius.zero
+                                : const Radius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          msg['text'],
+                          style: TextStyle(
+                            color: isMe ? Colors.white : Colors.black,
+                            fontSize: 15,
+                          ),
+                        ),
                       ),
-                    ),
-                    child: Text(
-                      msg["text"],
-                      style: TextStyle(
-                        color: isMe ? Colors.white : Colors.black,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ),
+                    );
+                  },
                 );
               },
             ),
@@ -109,8 +135,7 @@ class _ChatScreenState extends State<ChatScreen> {
           // Message input area
           SafeArea(
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               color: Colors.white,
               child: Row(
                 children: [
@@ -123,7 +148,9 @@ class _ChatScreenState extends State<ChatScreen> {
                         filled: true,
                         fillColor: Colors.grey[100],
                         contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 10),
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(25),
                           borderSide: BorderSide.none,

@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:qwixo/auth.dart';
 import 'package:qwixo/localstorage.dart';
@@ -130,51 +132,51 @@ class _HomeState extends State<Home> {
                       (200 - kToolbarHeight);
                   return FlexibleSpaceBar(
                     title: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _userPhoto.isNotEmpty
-                              ? CircleAvatar(
-                                  backgroundImage: NetworkImage(_userPhoto),
-                                  radius: 18,
-                                )
-                              : const CircleAvatar(
-                                  child: Icon(
-                                    Icons.person,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                SizedBox(width: 10,),
-                          AnimatedOpacity(
-                            opacity: _showusername ? 1.0 : 0.0,
-                            duration: Duration(milliseconds: 300),
-                            child: Text(_userName,style: TextStyle(color: Colors.white),),
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _userPhoto.isNotEmpty
+                            ? CircleAvatar(
+                                backgroundImage: NetworkImage(_userPhoto),
+                                radius: 18,
+                              )
+                            : const CircleAvatar(
+                                child: Icon(Icons.person, color: Colors.white),
+                              ),
+                        SizedBox(width: 10),
+                        AnimatedOpacity(
+                          opacity: _showusername ? 1.0 : 0.0,
+                          duration: Duration(milliseconds: 300),
+                          child: Text(
+                            _userName,
+                            style: TextStyle(color: Colors.white),
                           ),
-                        ],
-                      ),
-                      // Row(
-                      //   children: [
-                      //     _userPhoto.isNotEmpty
-                      //         ? CircleAvatar(
-                      //             backgroundImage: NetworkImage(_userPhoto),
-                      //             radius: 18,
-                      //           )
-                      //         : const CircleAvatar(
-                      //             child: Icon(
-                      //               Icons.person,
-                      //               color: Colors.white,
-                      //             ),
-                      //           ),
-                      //     // ✅ User profile photo
-                      //     Text(
-                      //       'Chats',
-                      //       style: TextStyle(
-                      //         color: Colors.white,
-                      //         fontWeight: FontWeight.bold,
-                      //       ),
-                      //     ),
-                      //   ],
-                      // ),
-                    
+                        ),
+                      ],
+                    ),
+
+                    // Row(
+                    //   children: [
+                    //     _userPhoto.isNotEmpty
+                    //         ? CircleAvatar(
+                    //             backgroundImage: NetworkImage(_userPhoto),
+                    //             radius: 18,
+                    //           )
+                    //         : const CircleAvatar(
+                    //             child: Icon(
+                    //               Icons.person,
+                    //               color: Colors.white,
+                    //             ),
+                    //           ),
+                    //     // ✅ User profile photo
+                    //     Text(
+                    //       'Chats',
+                    //       style: TextStyle(
+                    //         color: Colors.white,
+                    //         fontWeight: FontWeight.bold,
+                    //       ),
+                    //     ),
+                    //   ],
+                    // ),
                     centerTitle: true,
                   );
                 },
@@ -206,32 +208,61 @@ class _HomeState extends State<Home> {
                 ),
               ],
             ),
-            SliverList(
-              delegate: SliverChildBuilderDelegate((context, index) {
-                return GestureDetector(
-                  onTap: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => ChatScreen()),
-                    );
-                  },
-                  child: Container(
-                    // decoration: BoxDecoration(
-                    //   color: Colors.white,
-                    //   borderRadius: BorderRadius.only(
-                    //     topLeft: Radius.circular(30),
-                    //     topRight: Radius.circular(30),
-                    //   ),
-                    // ),
-                    color: Colors.white,
-                    child: ListTile(
-                      leading: CircleAvatar(),
-                      title: Text('name'),
-                      subtitle: Text('mesage'),
-                    ),
-                  ),
-                );
-              }),
+            SliverFillRemaining(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('users')
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData)
+                    return Center(child: CircularProgressIndicator());
+
+                  final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+                  final users = snapshot.data!.docs
+                      .where((doc) => doc['uid'] != currentUserId)
+                      .toList();
+
+                  if (users.isEmpty)
+                    return Center(child: Text("No users found"));
+
+                  return ListView.builder(
+                    padding: EdgeInsets.zero,
+                    itemCount: users.length,
+                    itemBuilder: (context, index) {
+                      final user = users[index];
+                      final otherusername = user['name'] ?? '';
+                      final receiverEmail = user['email'] ?? '';
+                     final receiverPhoto = user.data().containsKey('photoUrl') ? user['photoUrl'] : '';
+                      final receiverid = user['uid'];
+
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundImage: receiverPhoto.isNotEmpty
+                              ? NetworkImage(receiverPhoto)
+                              : null,
+                          child: receiverPhoto.isEmpty
+                              ? Icon(Icons.person, color: Colors.white)
+                              : null,
+                        ),
+                        title: Text(otherusername),
+                        subtitle: Text(receiverEmail),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ChatScreen(
+                                receiverName: otherusername,
+                                receiverid: receiverid,
+                                receiverPhoto: receiverPhoto,
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ],
         ),
