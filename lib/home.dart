@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:qwixo/auth.dart';
+import 'package:qwixo/chat_services.dart';
 import 'package:qwixo/localstorage.dart';
 import 'package:qwixo/screens/chat.dart';
 import 'package:qwixo/screens/login.dart';
@@ -19,6 +20,32 @@ class _HomeState extends State<Home> {
   String _userName = '';
   String _userEmail = '';
   String _userPhoto = '';
+  final chatservice _chatservice = chatservice();
+  //lastseen
+  String formatLastSeen(dynamic lastSeen) {
+  if (lastSeen == null) return 'Last seen: unknown';
+
+  DateTime lastSeenTime;
+
+  if (lastSeen is DateTime) {
+    lastSeenTime = lastSeen;
+  } else if (lastSeen is int) {
+    lastSeenTime = DateTime.fromMillisecondsSinceEpoch(lastSeen);
+  } else if (lastSeen is Timestamp) { // If using Firestore Timestamp
+    lastSeenTime = lastSeen.toDate();
+  } else {
+    return 'Last seen: unknown';
+  }
+
+  final now = DateTime.now();
+  final diff = now.difference(lastSeenTime);
+
+  if (diff.inMinutes < 1) return 'Last seen: just now';
+  if (diff.inMinutes < 60) return 'Last seen: ${diff.inMinutes} min ago';
+  if (diff.inHours < 24) return 'Last seen: ${diff.inHours} hr ago';
+  return 'Last seen: ${lastSeenTime.day}/${lastSeenTime.month}/${lastSeenTime.year}';
+}
+
 
   // logout
   void showlogoutdialoug(BuildContext context) {
@@ -67,7 +94,7 @@ class _HomeState extends State<Home> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.deepPurple,
+      // backgroundColor: Colors.deepPurple,
 
       // appBar: AppBar(
       //   title: Center(
@@ -231,31 +258,44 @@ class _HomeState extends State<Home> {
                     itemBuilder: (context, index) {
                       final user = users[index];
                       final otherusername = user['name'] ?? '';
-                      final receiverEmail = user['email'] ?? '';
-                     final receiverPhoto = user.data().containsKey('photoUrl') ? user['photoUrl'] : '';
+                      final receiverPhoto = user['photourl'] ?? '';
                       final receiverid = user['uid'];
 
-                      return ListTile(
-                        leading: CircleAvatar(
-                          backgroundImage: receiverPhoto.isNotEmpty
-                              ? NetworkImage(receiverPhoto)
-                              : null,
-                          child: receiverPhoto.isEmpty
-                              ? Icon(Icons.person, color: Colors.white)
-                              : null,
+                      return StreamBuilder<QuerySnapshot>(
+                        stream: _chatservice.getmessages(
+                          currentUserId,
+                          receiverid,
                         ),
-                        title: Text(otherusername),
-                        subtitle: Text(receiverEmail),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ChatScreen(
-                                receiverName: otherusername,
-                                receiverid: receiverid,
-                                receiverPhoto: receiverPhoto,
-                              ),
+                        builder: (context, chatSnapshot) {
+                          String lastmessage = '';
+                          if (chatSnapshot.hasData &&
+                              chatSnapshot.data!.docs.isNotEmpty) {
+                            lastmessage = chatSnapshot.data!.docs.first['text'];
+                          }
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundImage: receiverPhoto.isNotEmpty
+                                  ? NetworkImage(receiverPhoto)
+                                  : null,
+                              child: receiverPhoto.isEmpty
+                                  ? Icon(Icons.person, color: Colors.white)
+                                  : null,
                             ),
+                            title: Text(otherusername),
+                            subtitle: Text(lastmessage),
+                            trailing: Text(formatLastSeen(user['lastseen']) ,style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ChatScreen(
+                                    receiverName: otherusername,
+                                    receiverid: receiverid,
+                                    receiverPhoto: receiverPhoto,
+                                  ),
+                                ),
+                              );
+                            },
                           );
                         },
                       );

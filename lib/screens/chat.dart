@@ -26,6 +26,32 @@ class _ChatScreenState extends State<ChatScreen> {
   final _chatservice =chatservice();
    final currentUser = FirebaseAuth.instance.currentUser!;
 
+  //lastseen
+  String formatLastSeen(dynamic lastSeen) {
+  if (lastSeen == null) return 'Last seen: unknown';
+
+  DateTime lastSeenTime;
+
+  if (lastSeen is DateTime) {
+    lastSeenTime = lastSeen;
+  } else if (lastSeen is int) {
+    lastSeenTime = DateTime.fromMillisecondsSinceEpoch(lastSeen);
+  } else if (lastSeen is Timestamp) { // If using Firestore Timestamp
+    lastSeenTime = lastSeen.toDate();
+  } else {
+    return 'Last seen: unknown';
+  }
+
+  final now = DateTime.now();
+  final diff = now.difference(lastSeenTime);
+
+  if (diff.inMinutes < 1) return 'Last seen: just now';
+  if (diff.inMinutes < 60) return 'Last seen: ${diff.inMinutes} min ago';
+  if (diff.inHours < 24) return 'Last seen: ${diff.inHours} hr ago';
+  return 'Last seen: ${lastSeenTime.day}/${lastSeenTime.month}/${lastSeenTime.year}';
+}
+
+
 
   // temporary list to simulate messages
   final List<Map<String, dynamic>> _messages = [
@@ -65,7 +91,7 @@ class _ChatScreenState extends State<ChatScreen> {
               radius: 18,
             ),
             const SizedBox(width: 10),
-            Text("widget.receiverName"),
+            Text(widget.receiverName),
           ],
         ),
       ),
