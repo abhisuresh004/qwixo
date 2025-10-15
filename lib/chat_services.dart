@@ -30,6 +30,11 @@ class chatservice{
       'timestamp':FieldValue.serverTimestamp()
 
   });
+   await _firestore.collection('chats').doc(chatid).set({
+    'participants': [senderid, receiverid],
+    'lastMessage': message,
+    'timestamp': FieldValue.serverTimestamp(),
+  }, SetOptions(merge: true)); 
     
   }
   Stream<QuerySnapshot>getmessages(String user1,String user2){
