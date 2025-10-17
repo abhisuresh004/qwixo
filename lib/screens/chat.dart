@@ -23,44 +23,11 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
-  final _chatservice =chatservice();
-   final currentUser = FirebaseAuth.instance.currentUser!;
+  final _chatservice = chatservice();
+  final currentUser = FirebaseAuth.instance.currentUser!;
 
-  //lastseen
-  String formatLastSeen(dynamic lastSeen) {
-  if (lastSeen == null) return 'Last seen: unknown';
-
-  DateTime lastSeenTime;
-
-  if (lastSeen is DateTime) {
-    lastSeenTime = lastSeen;
-  } else if (lastSeen is int) {
-    lastSeenTime = DateTime.fromMillisecondsSinceEpoch(lastSeen);
-  } else if (lastSeen is Timestamp) { // If using Firestore Timestamp
-    lastSeenTime = lastSeen.toDate();
-  } else {
-    return 'Last seen: unknown';
-  }
-
-  final now = DateTime.now();
-  final diff = now.difference(lastSeenTime);
-
-  if (diff.inMinutes < 1) return 'Last seen: just now';
-  if (diff.inMinutes < 60) return 'Last seen: ${diff.inMinutes} min ago';
-  if (diff.inHours < 24) return 'Last seen: ${diff.inHours} hr ago';
-  return 'Last seen: ${lastSeenTime.day}/${lastSeenTime.month}/${lastSeenTime.year}';
-}
-
-
-
-  // temporary list to simulate messages
-  final List<Map<String, dynamic>> _messages = [
-    {"text": "Hey there!", "isMe": false},
-    {"text": "Hi! How are you?", "isMe": true},
-  ];
-
-  void _sendMessage()async {
-     final text = _messageController.text.trim();
+  void _sendMessage() async {
+    final text = _messageController.text.trim();
     if (text.isEmpty) return;
 
     await _chatservice.sendmessage(
@@ -77,10 +44,16 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  String formatTime(Timestamp? timestamp) {
+    if (timestamp == null) return '';
+    final dt = timestamp.toDate();
+    return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: Colors.grey[200],
       appBar: AppBar(
         backgroundColor: Colors.deepPurple,
         titleSpacing: 0,
@@ -88,66 +61,81 @@ class _ChatScreenState extends State<ChatScreen> {
           children: [
             CircleAvatar(
               backgroundImage: NetworkImage(widget.receiverPhoto),
-              radius: 18,
+              radius: 20,
             ),
             const SizedBox(width: 10),
-            Text(widget.receiverName),
+            Text(
+              widget.receiverName,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
       ),
       body: Column(
         children: [
-          // Chat messages list
+          // Chat messages
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: _chatservice.getmessages(
-                currentUser.uid,
-                widget.receiverid,
-              ),
+              stream: _chatservice.getmessages(currentUser.uid, widget.receiverid),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                final _messages = snapshot.data!.docs.reversed.toList();
+                final messages = snapshot.data!.docs.reversed.toList();
 
                 return ListView.builder(
                   controller: _scrollController,
-                  padding: EdgeInsets.all(12),
-                  itemCount: _messages.length,
+                  padding: const EdgeInsets.all(12),
+                  itemCount: messages.length,
                   itemBuilder: (context, index) {
-                    final msg = _messages[index];
+                    final msg = messages[index];
                     final isMe = msg['senderid'] == currentUser.uid;
+                    final timestamp = msg['timestamp'] as Timestamp?;
+                    final timeString = formatTime(timestamp);
 
                     return Align(
-                      alignment: isMe
-                          ? Alignment.centerRight
-                          : Alignment.centerLeft,
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(vertical: 4),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isMe
-                              ? Colors.deepPurple.shade400
-                              : Colors.grey.shade300,
-                          borderRadius: BorderRadius.only(
-                            topLeft: const Radius.circular(12),
-                            topRight: const Radius.circular(12),
-                            bottomLeft: isMe
-                                ? const Radius.circular(12)
-                                : Radius.zero,
-                            bottomRight: isMe
-                                ? Radius.zero
-                                : const Radius.circular(12),
+                      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: isMe ? Colors.deepPurple.shade400 : Colors.white,
+                            borderRadius: BorderRadius.only(
+                              topLeft: const Radius.circular(16),
+                              topRight: const Radius.circular(16),
+                              bottomLeft: isMe ? const Radius.circular(16) : Radius.zero,
+                              bottomRight: isMe ? Radius.zero : const Radius.circular(16),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                        ),
-                        child: Text(
-                          msg['text'],
-                          style: TextStyle(
-                            color: isMe ? Colors.white : Colors.black,
-                            fontSize: 15,
+                          child: Column(
+                            crossAxisAlignment:
+                                isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                msg['text'],
+                                style: TextStyle(
+                                  color: isMe ? Colors.white : Colors.black87,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                timeString,
+                                style: TextStyle(
+                                  color: isMe ? Colors.white70 : Colors.grey,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -158,10 +146,10 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
 
-          // Message input area
+          // Message input
           SafeArea(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               color: Colors.white,
               child: Row(
                 children: [
@@ -173,12 +161,9 @@ class _ChatScreenState extends State<ChatScreen> {
                         hintText: "Type a message...",
                         filled: true,
                         fillColor: Colors.grey[100],
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(25),
+                          borderRadius: BorderRadius.circular(30),
                           borderSide: BorderSide.none,
                         ),
                       ),
@@ -186,7 +171,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                   const SizedBox(width: 8),
                   CircleAvatar(
-                    radius: 24,
+                    radius: 26,
                     backgroundColor: Colors.deepPurple,
                     child: IconButton(
                       icon: const Icon(Icons.send, color: Colors.white),

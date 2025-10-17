@@ -13,10 +13,21 @@ class FirestoreServices {
         "name": user.displayName,
         "email": user.email,
         "photourl": user.photoURL,
-        "lastseen": FieldValue.serverTimestamp(),
+        'isOnline': true, 
+        "lastSeen": FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (e) {
       print("Error saving user to Firestore: $e");
+    }
+  }
+
+  Future<void> updateUserPresence(bool isOnline) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      await _firestore.collection('users').doc(user.uid).update({
+        'isOnline': isOnline,
+        'lastSeen': FieldValue.serverTimestamp(),
+      });
     }
   }
 
@@ -28,3 +39,4 @@ class FirestoreServices {
     return _firestore.collection('users').snapshots();
   }
 }
+

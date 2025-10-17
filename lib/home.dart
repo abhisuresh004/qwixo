@@ -3,7 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:qwixo/auth.dart';
 import 'package:qwixo/chat_services.dart';
+import 'package:qwixo/firestore_services.dart';
 import 'package:qwixo/localstorage.dart';
+import 'package:qwixo/presence_manager.dart';
 import 'package:qwixo/screens/chat.dart';
 import 'package:qwixo/screens/login.dart';
 
@@ -15,8 +17,7 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-  bool _showLogout = false;
-  bool _showUsername = false;
+  bool _showSearch = false;
   String _userName = '';
   String _userEmail = '';
   String _userPhoto = '';
@@ -27,6 +28,7 @@ class _HomeState extends State<Home> {
   void initState() {
     super.initState();
     loadUserData();
+    PresenceManager.setupPresence();
   }
 
   Future<void> loadUserData() async {
@@ -72,6 +74,7 @@ class _HomeState extends State<Home> {
           ),
           TextButton(
             onPressed: () async {
+              await FirestoreServices().updateUserPresence(false);
               await Authservices().Signout();
               await Localstorage.cleardata();
               Navigator.pushReplacement(
@@ -95,7 +98,7 @@ class _HomeState extends State<Home> {
         title: Text('Start New Chat'),
         content: TextField(
           controller: emailController,
-          decoration: const InputDecoration(hintText: 'Enter user email'),
+          decoration: const InputDecoration(hintText: 'Enter user email',border: OutlineInputBorder()),
         ),
         actions: [
           TextButton(
@@ -187,19 +190,13 @@ class _HomeState extends State<Home> {
       ),
       body: NotificationListener<ScrollNotification>(
         onNotification: (scrollInfo) {
-          if (scrollInfo.metrics.pixels > 100 &&
-              !_showLogout &&
-              !_showUsername) {
+          if (scrollInfo.metrics.pixels > 199 && !_showSearch) {
             setState(() {
-              _showLogout = true;
-              _showUsername = true;
+              _showSearch = true;
             });
-          } else if (scrollInfo.metrics.pixels <= 100 &&
-              _showLogout &&
-              _showUsername) {
+          } else if (scrollInfo.metrics.pixels <= 199 && _showSearch) {
             setState(() {
-              _showLogout = false;
-              _showUsername = false;
+              _showSearch = false;
             });
           }
           return true;
@@ -218,42 +215,62 @@ class _HomeState extends State<Home> {
               flexibleSpace: LayoutBuilder(
                 builder: (context, constraints) {
                   return FlexibleSpaceBar(
-                    title: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _userPhoto.isNotEmpty
-                            ? CircleAvatar(
-                                backgroundImage: NetworkImage(_userPhoto),
-                                radius: 18,
-                              )
-                            : const CircleAvatar(
-                                child: Icon(Icons.person, color: Colors.white),
-                              ),
-                        const SizedBox(width: 10),
-                        AnimatedOpacity(
-                          opacity: _showUsername ? 1.0 : 0.0,
-                          duration: const Duration(milliseconds: 300),
-                          child: Text(
+                    title: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          _userPhoto.isNotEmpty
+                              ? CircleAvatar(
+                                  backgroundImage: NetworkImage(_userPhoto),
+                                  radius: 18,
+                                )
+                              : const CircleAvatar(
+                                  child: Icon(
+                                    Icons.person,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                          const SizedBox(width: 10),
+                          Text(
                             _userName,
-                            style: const TextStyle(color: Colors.white),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.white,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                     centerTitle: true,
                   );
                 },
               ),
               actions: [
-                AnimatedOpacity(
-                  opacity: _showLogout ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 300),
-                  child: IconButton(
-                    icon: const Icon(Icons.logout, color: Colors.white),
-                    onPressed: () => showLogoutDialog(context),
-                  ),
+                IconButton(
+                  icon: const Icon(Icons.logout, color: Colors.white),
+                  onPressed: () => showLogoutDialog(context),
                 ),
               ],
+            ),
+            SliverToBoxAdapter(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: _showSearch
+                    ? Padding(
+                        key: ValueKey(true),
+                        padding: const EdgeInsets.all(8.0),
+                        child: TextField(
+                          decoration: InputDecoration(
+                            hintText: 'Search...',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(key: ValueKey(false)),
+              ),
             ),
 
             // 🔹 Chat List
@@ -345,15 +362,26 @@ class _HomeState extends State<Home> {
                       ),
                       title: Text(otherUserName),
                       subtitle: Text(lastMessage),
-                      trailing: chat['timestamp'] != null
-                          ? Text(
-                              formatLastSeen(chat['timestamp']),
+                      trailing: Column(
+                        children: [
+                          if (userData['isOnline'] == true)
+                            Text(
+                              'Online',
                               style: TextStyle(
+                                color: Colors.green,
                                 fontSize: 12,
-                                color: Colors.grey[600],
                               ),
                             )
-                          : null,
+                          else
+                            Text(
+                              formatLastSeen(userData['lastSeen']),
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 12,
+                              ),
+                            ),
+                        ],
+                      ),
                       onTap: () {
                         Navigator.push(
                           context,
